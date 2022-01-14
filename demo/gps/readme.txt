@@ -1,0 +1,2 @@
+Air820：适用于Air820UX模块的demo
+Air模块外接GPS模块：适用于Air模块通过串口外挂单独的GPS模块的demo
