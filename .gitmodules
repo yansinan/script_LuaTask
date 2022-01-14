@@ -1,0 +1,3 @@
+[submodule "workspace/websocketCamera"]
+	path = workspace/websocketCamera
+	url = git@github.com:yansinan/websocketCameraAir724UG.git
