@@ -1,9 +1,9 @@
---- 模块功能：GPIO功能测试.
+--- 模块功能：GPS自适应
 -- @author openLuat
--- @module gpio.testGpioSingle
+-- @module autoGps.task
 -- @license MIT
 -- @copyright openLuat
--- @release 2018.03.27
+-- @release 2021.09.09
 
 module(...,package.seeall)
 
@@ -108,6 +108,9 @@ local function writeKindCmd()
         writeCmd("$PDTINFO\r\n",true) --530H
         writeCmd("$PGKC462*")         --530
         writeCmd("$PCAS06,0*")        --530Z
+    elseif gpsKind=="530Z" then writeCmd("$PCAS06,0*")
+    elseif gpsKind=="530H" then writeCmd("$PDTINFO\r\n",true)
+    elseif gpsKind=="530"  then writeCmd("$PGKC462*")
     end
 end
 
@@ -190,9 +193,21 @@ local function selfAdapt()
         else
             log.warn("autoGPS.task","invalid uartBaudrate")
         end   
-    
+        --从文件系统中读取有效内容后重载一次命令进行校验
+        init()
+        writeKindCmd() 
+        local result,data=sys.waitUntil("GPS_KIND",2000)
+        if result then
+        autoClose()
         loadLib(gpsKind)    
         sys.publish("AUTOGPS_READY",gpsLib,agpsLib,gpsKind,uartBaudrate)
+        rdBuf=""
+        else
+            log.warn("autoGPS.task","gps kind of history data err")
+            sys.publish("GPS_WORK_ABNORMAL_IND")
+            autoClose()
+            return false
+        end
     else 
         rdBuf = ""
         init()
@@ -221,7 +236,6 @@ sys.subscribe("GPS_WORK_ABNORMAL_IND",function()
     log.info("autoGPS.GPS_WORK_ABNORMAL_IND",not coSelfAdapt or coroutine.status(coSelfAdapt)=="dead")
     if not coSelfAdapt or coroutine.status(coSelfAdapt)=="dead" then
         os.remove(GPS_KIND_INFO_FILE)
-        
         if type(gpsLib)=="table" and type(gpsLib.unInit)=="function" then
             gpsLib.unInit()
         end

@@ -63,11 +63,7 @@ local nmeaMode,nmeaCbFnc = 0
 local nmeaInterval = 1000
 --运行模式
 --0，正常运行模式
---1，周期超低功耗跟踪模式
---2，周期低功耗模式
---4，直接进入超低功耗跟踪模式
---8，自动低功耗模式，可以通过串口唤醒
---9, 自动超低功耗跟踪模式，需要force on来唤醒
+--1，低功耗模式
 local runMode = 0
 --gps 的串口线程是否在工作；
 local taskFlag=false
@@ -673,24 +669,12 @@ end
 -- 如果不调用此接口配置，则默认为正常运行模式
 -- @number mode，运行模式
 -- 0：正常运行模式
--- 1：周期超低功耗跟踪模式
--- 2：周期低功耗模式
--- 4：直接进入超低功耗跟踪模式
--- 8：自动低功耗模式，可以通过串口唤醒
--- 9：自动超低功耗跟踪模式，需要force on来唤醒
--- @number runTm，单位毫秒，mode为0时表示NEMA数据的上报间隔，mode为1或者2时表示运行时长，其余mode时此值无意义
--- @number sleepTm，单位毫秒，mode为1或者2时表示运行时长，其余mode时此值无意义
+-- 1：低功耗模式
 -- @return nil
--- @usage gpsHxxt.setRunMode(0,1000)
--- @usage gpsHxxt.setRunMode(1,5000,2000)
+-- @usage gpsHxxt.setRunMode(0)
+-- @usage gpsHxxt.setRunMode(1)
 function setRunMode(mode)
-  -- local rt,st = runTm or "",sleepTm or ""
-    --[[if mode==0 and rt then
-        if rt>10000 then rt=10000 end
-        if rt<200 then rt=200 end
-        nmeaReportStr = "$PGKC101,"..rt.."*"
-    end
-]]
+
     local tmpStr = "$CFGLOWPOWER,"..mode
     if tmpStr~=runModeStr then
         runModeStr,runModeSetted  = tmpStr

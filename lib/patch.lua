@@ -165,3 +165,20 @@ if io and io.mount then
         return result
     end
 end
+
+
+
+local pmdInited
+
+if pmd and pmd.init then
+    oldPmdInit = pmd.init
+    pmd.init = function (...)
+        if not pmdInited then pmdInited = true end
+        local result = oldPmdInit(...)
+        return result
+    end
+end
+
+pmd.libScriptInit = function()
+    if not pmdInited then pmd.init({}) end
+end

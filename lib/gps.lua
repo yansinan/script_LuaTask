@@ -645,7 +645,7 @@ function setNmeaMode(mode,cbFnc)
     nmeaMode,nmeaCbFnc = mode,cbFnc
 end
 
---- 设置GPS模块的运行模式.
+-- 设置GPS模块的运行模式.
 -- 如果不调用此接口配置，则默认为正常运行模式
 -- @number mode，运行模式
 -- 0：正常运行模式

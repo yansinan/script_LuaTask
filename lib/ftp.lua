@@ -44,7 +44,6 @@ local function pasv_connect(timeout)
     if r==true and n:sub(1,3)=="230" then
         r ,n= ftp_client:recv(timeout)
     end
-    log.info("ftp ip",n)
     local h1,h2,h3,h4,p1,p2=n:match ("(%d+),(%d+),(%d+),(%d+),(%d+),(%d+)")
     data_client_ip,data_client_port = h1..'.'..h2..'.'..h3..'.'..h4,string.format("%d",(p1*256+p2))
     log.info("ftp ip",data_client_ip,"port",data_client_port)

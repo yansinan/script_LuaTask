@@ -24,7 +24,6 @@ require "sim"
 --每1分钟查询一次基站信息
 net.startQueryAll(60000, 60000)
 
-
 --此处关闭RNDIS网卡功能
 --否则，模块通过USB连接电脑后，会在电脑的网络适配器中枚举一个RNDIS网卡，电脑默认使用此网卡上网，导致模块使用的sim卡流量流失
 --如果项目中需要打开此功能，把ril.request("AT+RNDISCALL=0,1")修改为ril.request("AT+RNDISCALL=1,1")即可
@@ -51,7 +50,7 @@ netLed.setup(true,pio.P0_1,pio.P0_4)
 --加载错误日志管理功能模块【强烈建议打开此功能】
 --如下2行代码，只是简单的演示如何使用errDump功能，详情参考errDump的api
 require "errDump"
-errDump.request("udp://ota.airm2m.com:9072")
+errDump.request("udp://dev_msg1.openluat.com:12425", nil, true)
 
 --加载远程升级功能模块【强烈建议打开此功能，如果使用了阿里云的OTA功能，可以不打开此功能】
 --如下3行代码，只是简单的演示如何使用update功能，详情参考update的api以及demo/update

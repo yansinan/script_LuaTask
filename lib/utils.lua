@@ -181,9 +181,9 @@ function string.checkSum(str, num)
 end
 
 --- 判断文件是否存在
--- @string path,文件全名例如："/ldata/call.mp3"
--- @return boole,存在为true,不存在为false
--- @usage local ex = io.exists("/ldata/call.mp3")
+-- @string path,文件全名，例如："/lua/call.mp3"
+-- @return bool,存在为true,不存在为false
+-- @usage local ex = io.exists("/lua/call.mp3")
 function io.exists(path)
     local file = io.open(path, "r")
     if file then
@@ -192,10 +192,10 @@ function io.exists(path)
     end
     return false
 end
---- 读取文件并返回文件的内容
--- @string path,文件全名例如："/ldata/call.txt"
+--- 读取文件中的所有内容
+-- @string path,文件全名，例如："/lua/call.txt"
 -- @return string,文件的内容,文件不存在返回nil
--- @usage local c = io.readFile("/ldata/call.txt")
+-- @usage local c = io.readFile("/lua/call.txt")
 function io.readFile(path)
     local file = io.open(path, "rb")
     if file then
@@ -205,11 +205,13 @@ function io.readFile(path)
     end
 end
 --- 写入文件指定的内容,默认为覆盖二进制模式
--- @string path,文件全名例如："/ldata/call.txt"
+-- @string path,文件全名，例如："/lua/call.txt"
 -- @string content,文件内容
--- @string mode,文件写入模式默认"w+b"
--- @return string,文件的内容
--- @usage local c = io.writeFile("/ldata/call.txt","test")
+-- @string mode,文件写入模式，支持如下几种（默认"w+b"）：
+--         "w"或者"w+b"：空文件写入模式，如果文件不存在，则新建文件，然后从起始位置开始写入；如果文件存在，则删除已有内容，然后从起始位置开始写入
+--         "a"或者"a+b"：追加写入模式，如果文件不存在，则新建文件，然后从起始位置开始写入；如果文件存在，则从文件末尾开始追加写入
+-- @return boolean result,文件写入结果，true表示写入成功；false表示写入失败
+-- @usage local c = io.writeFile("/lua/call.txt","test")
 function io.writeFile(path, content, mode)
     local mode = mode or "w+b"
     local file = io.open(path, mode)
@@ -222,9 +224,9 @@ function io.writeFile(path, content, mode)
     end
 end
 --- 将文件路径分解为table信息
--- @string path,文件路径全名例如:"/ldata/call.txt"
--- @return table,{dirname="/ldata/",filename="call.txt",basename="call",extname=".txt"}
--- @usage loca p = io.pathInfo("/ldata/call.txt")
+-- @string path,文件路径全名，例如:"/lua/call.txt"
+-- @return table,{dirname="/lua/",filename="call.txt",basename="call",extname=".txt"}
+-- @usage loca p = io.pathInfo("/lua/call.txt")
 function io.pathInfo(path)
     local pos = string.len(path)
     local extpos = pos + 1
@@ -251,9 +253,9 @@ function io.pathInfo(path)
     }
 end
 --- 返回文件大小
--- @string path,文件路径全名例如:"/ldata/call.txt","test"
+-- @string path,文件路径全名，例如:"/lua/call.txt"
 -- @return number ,文件大小
--- @usage locan cnt = io.fileSize("/ldata/call.txt")
+-- @usage locan cnt = io.fileSize("/lua/call.txt")
 function io.fileSize(path)
     local size = 0
     local file = io.open(path, "r")
@@ -267,8 +269,8 @@ function io.fileSize(path)
 end
 
 --- 返回指定位置读取的字符串
--- @string path,文件路径全名例如:"/ldata/call.txt"
--- @number offset,要读取的指定位置
+-- @string path,文件路径全名，例如:"/lua/call.txt"
+-- @number offset,要读取的指定位置，相对于文件开头的偏移位置
 -- @number len,要读取的字节数
 -- @return string,返回要读取的数据,读取失败返回nil
 function io.readStream(path, offset, len)

@@ -14,9 +14,12 @@ module(..., package.seeall)
 local publish = sys.publish
 local request = ril.request
 local ready = false
+local ipAddr = ""
 local gprsAttached
 local cid_manual=5
-
+function getIp()
+    return ipAddr
+end
 function isReady() return ready end
 
 -- apn，用户名，密码
@@ -152,17 +155,21 @@ function analysis_cgdcont(data)
             local cid,pdptyp,apn,addr=string.match(tmp, "(%d+),(.+),(.+),[\"\'](.+)[\"\']")
             if not cid or not pdptyp or not apn or not addr then
                 log.info("analysis_cgdcont CGDCONT is empty")
+                ipAddr = ""
                 result=false
             else
                 log.info("analysis_cgdcont ",cid,pdptyp,apn,addr)
                 if addr:match("%d+%.%d+%.%d+%.%d") then
+                    ipAddr = addr
                     return true
                 else
                     log.info("analysis_cgdcont CGDCONT is empty1")
+                    ipAddr = ""
                     return false
                 end
             end
         else
+            ipAddr = ""
             log.info("analysis_cgdcont tmp is empty")
         end
     end

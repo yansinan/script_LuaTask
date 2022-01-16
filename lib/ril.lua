@@ -61,7 +61,8 @@ local RILCMD = {
     ["+CIND"] = 2,
     --["+CGDCONT"] = 3,
 	["+CGACT"] = 3,
-	["+CALIBINFO"] = 4
+	["+CALIBINFO"] = 4,
+    ["*CALINFO"] = 3,
 }
 
 --radioready：AT命令通道是否准备就绪

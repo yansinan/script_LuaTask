@@ -13,7 +13,8 @@ module(..., package.seeall)
 --para：实时参数表
 --config：默认参数表
 paraname, paranamebak = "/nvm_para.lua", "/nvm_para_bak.lua"
-local para, libdftconfig, configname, cconfigname, econfigname = {}
+para = {}
+local libdftconfig, configname, cconfigname, econfigname
 local sBurnSave
 
 --[[

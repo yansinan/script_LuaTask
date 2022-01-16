@@ -14,7 +14,7 @@ module(..., package.seeall)
 --ant: 耦合测试标志位
 --temp:模块温度
 local sn, imei, calib, ver, muid, ant,modeltype,temp
-local setSnCbFnc,setImeiCbFnc,setClkCbFnc
+local setSnCbFnc,setImeiCbFnc,setClkCbFnc,getTemperatureCbFnc
 
 local function timeReport()
     sys.publish("TIME_CLK_IND")
@@ -52,9 +52,13 @@ local function rsp(cmd, success, response, intermediate)
         sys.publish('IMEI_READY_IND')
     --查询模块温度
     elseif cmd =="AT+RFTEMPERATURE?" then
-        temp = tonumber(string.match(intermediate, ':(.+)'))
-        if success then
-            sys.publish('MODEL_TEMPERATURE_READT_IND')
+        temp = string.match(intermediate, ':(.+)')
+        if getTemperatureCbFnc and type(getTemperatureCbFnc)=="function" then
+            if success then
+                getTemperatureCbFnc(temp)
+            else
+                getTemperatureCbFnc("")
+            end
         end
     --查询模块型号
     elseif cmd == 'AT+CGMM' then
@@ -88,6 +92,17 @@ local function rsp(cmd, success, response, intermediate)
 			calib = (LTE_afc == "1" and LTE_TDD_agc == "1" and LTE_TDD_apc == "1" and LTE_FDD_agc == "1" and LTE_FDD_apc == "1")
 			ant = (ANT_LTE == "1")
 		end
+    elseif cmd:match("AT%*CALINFO%=R") then
+		if intermediate then
+            local LteTest=intermediate:match("LteTest%,PASS")
+            local LteCal=intermediate:match("LteCal%,PASS")
+            if LteCal then
+            calib=(LteCal=="LteCal,PASS")
+            end
+            if LteTest then
+            ant=(LteTest=="LteTest,PASS")
+            end
+        end
     elseif cmd:match("AT%+WIMEI=") then
         if success then
             req("AT+CGSN")
@@ -204,18 +219,18 @@ function getModelType()
 end
 
 -- 获取模块温度
--- @return number,模块温度，如果未获取到返回""
+-- @return string,模块温度，如果要对该值进行运算，可以使用带float的固件将该值转为number
 -- 例如：模块温度为29.77摄氏度,则返回值为29.77
--- 注意：开机lua脚本运行之后，会发送at命令去查询模块型号，所以需要一定时间才能获取到模块温度。开机后立即调用此接口，基本上返回""
-function getTemperature()
+function getTemperature(cb)
+    getTemperatureCbFnc = cb
     ril.request("AT+RFTEMPERATURE?")
-    return temp or ""
 end
 
 --- 获取VBAT的电池电压
 -- @return number,电池电压,单位mv
 -- @usage vb = getVbatt()
 function getVbatt()
+    if type(pmd.libScriptInit)=="function" then pmd.libScriptInit() end
     local v1, v2, v3, v4, v5 = pmd.param_get()
     return v2
 end
@@ -242,11 +257,12 @@ end
 -- 0使用MODULE_STATUS/GPIO_5引脚
 -- 1使用GPIO_13引脚，注意：上电的时候不要把 GPIO_13 拉高到V_GLOBAL_1V8，否则模块会进入校准模式，不正常开机
 -- @number para1，
--- 当id为0时，para1表示分频系数，最大值为1024；分频系数和频率的换算关系为：频率=25000000/para1；例如para1为500时，频率为50000Hz
+-- 当id为0时，para1表示分频系数，最大值为2047；分频系数和频率的换算关系为：频率=25000000/para1 （Hz）；例如para1为500时，频率为50000Hz
+--                                          分频系数和周期的换算关系为：周期=para1/25000000　（ｓ）；例如para1为500时，周期为20ｕｓ
 -- 当id为1时，para1表示时钟周期，取值范围为0-7，仅支持整数
 --                                         0-7分别对应125、250、500、1000、1500、2000、2500、3000毫秒
 -- @number para2，
--- 当id为0时，para2表示占空比计算系数，最大值为512；占空比计算系数和占空比的计算关系为：占空比=para2/para1
+-- 当id为0时，para2表示占空比计算系数，最大值为1023；占空比计算系数和占空比的计算关系为：占空比=para2/para1
 -- 当id为1时，para2表示一个时钟周期内的高电平时间，取值范围为1-15，仅支持整数
 --                                                           1-15分别对应15.6、31.2、46.8、62、78、94、110、125、140、156、172、188、200、218、234毫秒
 -- @return nil
@@ -283,6 +299,7 @@ ril.regRsp("+WIMEI", rsp)
 ril.regRsp("+AMFAC", rsp)
 --ril.regRsp('+VER', rsp, 4, '^[%w_]+$')
 ril.regRsp("+CALIBINFO",rsp)
+ril.regRsp("*CALINFO",rsp)
 --req('AT+VER')
 --查询序列号
 req("AT+WISN?")
@@ -293,5 +310,9 @@ req("AT*EXINFO?")
 --查询模块温度
 -- req("AT+RFTEMPERATURE?")
 --查询模块型号
+if string.match(rtos.get_version(),"ASR1603") then 
+    req("AT*CALINFO=R,LteCal")
+    req("AT*CALINFO=R,LteTest")
+end
 req("AT+CGMM")
 setTimeReport()

@@ -1,7 +1,7 @@
 -- 必须在这个位置定义PROJECT和VERSION变量
 -- PROJECT：ascii string类型，可以随便定义，只要不使用,就行
 -- VERSION：ascii string类型，如果使用Luat物联云平台固件升级的功能，必须按照"X.X.X"定义，X表示1位数字；否则可随便定义
-PROJECT = "LM75B"
+PROJECT = "DA213B"
 VERSION = "0.0.1"
 PRODUCT_KEY = "v32xEAKsGTIEQxtqgwCldp5aPlcnPs3K"
 -- 日志级别
@@ -40,14 +40,8 @@ netLed.setup(true, pio.P0_1, pio.P0_4)
 require "misc"
 require "errDump"
 
--- 系統指示灯
--- require "i2c_ssd1306_lcd"
--- require "mpu6xxx"
-require "LM75B"
-require "ntp"
-ntp.timeSync(1, function()
-    log.info("----------------> AutoTimeSync is Done ! <----------------")
-end)
+-- 加载I²C功能测试模块
+require "DA213B"
 
 -- 启动系统框架
 sys.init(0, 0)

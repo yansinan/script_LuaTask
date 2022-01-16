@@ -26,7 +26,7 @@ local function getFileBase64Len(s)
     if s then return (io.fileSize(s)+2)/3*4 end
 end
 
-local function taskClient(method,protocal,auth,host,port,path,cert,head,body,timeout,cbFnc,rcvFilePath)
+local function taskClient(method,protocal,auth,host,port,path,cert,head,body,timeout,cbFnc,rcvFilePath,tCoreExtPara)
     log.info("http path",path)
     while not socket.isReady() do
         if not sys.waitUntil("IP_READY_IND",timeout) then return response(nil,cbFnc,false,"network not ready") end
@@ -56,9 +56,9 @@ local function taskClient(method,protocal,auth,host,port,path,cert,head,body,tim
     end
     headStr = headStr.."\r\n"
 
-    local client = socket.tcp(protocal=="https",cert)
+    local client = socket.tcp(protocal=="https",cert,tCoreExtPara)
     if not client then return response(nil,cbFnc,false,"create socket error") end
-    if not client:connect(host,port) then
+    if not client:connect(host,port,timeout) then
         return response(client,cbFnc,false,"connect fail")
     end
 
@@ -257,7 +257,12 @@ end
 --      prompt：string类型，result为true时，表示服务器的应答码；result为false时，表示错误信息
 --      head：table或者nil类型，表示服务器的应答头；result为true时，此参数为{head1="value1", head2="value2", head3="value3"}，value中不包含\r\n；result为false时，此参数为nil
 --      body：string类型，如果调用request接口时传入了rcvFileName，此参数表示下载文件的完整路径；否则表示接收到的应答实体数据
--- @string[opt=nil] rcvFileName，保存“服务器应答实体数据”的文件名，可以传入完整的文件路径，也可以传入单独的文件名，如果是文件名，http.lua会自动生成一个完整路径，通过cbFnc的参数body传出
+-- @string[opt=nil] rcvFileName，string类型时，保存“服务器应答实体数据”的文件名，可以传入完整的文件路径，也可以传入单独的文件名，如果是文件名，http.lua会自动生成一个完整路径，通过cbFnc的参数body传出
+--                               function类型时，rcvFileName(stepData,totalLen,statusCode)
+--                               stepData: 本次服务器应答实体数据
+--                               totalLen: 实体数据的总长度
+--                               statusCode：服务器的应答码   
+-- @table[opt=nil] tCoreExtPara,table类型{rcvBufferSize=0}修改缓冲空间大小，解决窗口满连接超时问题，单位:字节
 -- @return string rcvFilePath，如果传入了rcvFileName，则返回对应的完整路径；其余情况都返回nil
 -- @usage
 -- http.request("GET","www.lua.org",nil,nil,nil,30000,cbFnc)
@@ -271,7 +276,7 @@ end
 -- http.request("GET","https://www.baidu.com",{caCert="ca.crt"})
 -- http.request("GET","https://www.baidu.com",{caCert="ca.crt",clientCert = "client.crt",clientKey = "client.key"})
 -- http.request("GET","https://www.baidu.com",{caCert="ca.crt",clientCert = "client.crt",clientKey = "client.key",clientPassword = "123456"})
-function request(method,url,cert,head,body,timeout,cbFnc,rcvFileName)
+function request(method,url,cert,head,body,timeout,cbFnc,rcvFileName,tCoreExtPara)
     local protocal,auth,hostName,port,path,d1,d2,offset,rcvFilePath
     d1,d2,protocal = url:find("^(%a+)://")
     if not protocal then protocal = "http" end
@@ -298,7 +303,7 @@ function request(method,url,cert,head,body,timeout,cbFnc,rcvFileName)
 
     path = url:sub(offset+1,-1)
 
-    sys.taskInit(taskClient,method,protocal,auth or "",hostName,port,path=="" and "/" or path,cert,head,body or "",timeout or 30000,cbFnc,rcvFileName)
+    sys.taskInit(taskClient,method,protocal,auth or "",hostName,port,path=="" and "/" or path,cert,head,body or "",timeout or 30000,cbFnc,rcvFileName,tCoreExtPara)
     if type(rcvFileName) == "string" then
         return rcvFileName
     end

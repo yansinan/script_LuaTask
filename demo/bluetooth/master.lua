@@ -22,7 +22,11 @@ local function init()
         elseif msg.event == btcore.MSG_BLE_DATA_IND then
             sys.publish("BT_DATA_IND", {["data"] = msg.data, ["uuid"] = msg.uuid, ["len"] = msg.len})  --接收到的数据内容
         elseif msg.event == btcore.MSG_BLE_SCAN_CNF then
-            sys.publish("BT_SCAN_CNF", msg.result) --打开扫描成功
+            if(msg.enable == 1) then
+                sys.publish("BT_SCAN_OPEN_CNF", msg.result) --打开扫描成功
+            else
+                sys.publish("BT_SCAN_CLOSE_CNF", msg.result) --关闭扫描成功
+            end
         elseif msg.event == btcore.MSG_BLE_SCAN_IND then
             sys.publish("BT_SCAN_IND", {["name"] = msg.name, ["addr_type"] = msg.addr_type, ["addr"] = msg.addr, ["manu_data"] = msg.manu_data, 
             ["raw_data"] = msg.raw_data, ["raw_len"] = msg.raw_len, ["rssi"] = msg.rssi})  --接收到扫描广播包数据
@@ -50,7 +54,7 @@ local function scan()
     log.info("bt", "scan")
     --btcore.setscanparam(1,48,6,0,0)--扫描参数设置（扫描类型,扫描间隔,扫描窗口,扫描过滤测量,本地地址类型）
     btcore.scan(1) --开启扫描
-    _, result = sys.waitUntil("BT_SCAN_CNF", 50000) --等待扫描打开成功
+    _, result = sys.waitUntil("BT_SCAN_OPEN_CNF", 50000) --等待扫描打开成功
     if result ~= 0 then
         return false
     end

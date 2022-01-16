@@ -1,0 +1,1 @@
+传感器代码移至/demo/peripheral目录下

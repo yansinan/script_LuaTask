@@ -46,9 +46,13 @@ local audioQueue = {}
 local sStrategy
 
 local function isTtsStopResultValid()
-    return tonumber(string.match(rtos.get_version(),"(%d+)_RDA"))>=8
+    local version = string.match(rtos.get_version(),"(%d+)_RDA")
+    if version then
+        return tonumber(version)>=8
+    else
+        return false
+    end
 end
-
 
 local function handleCb(item,result)
     log.info("audio.handleCb",item.cbFnc,result)
@@ -448,7 +452,8 @@ end
 -- 设置为喇叭输出：audio.setChannel(2)
 -- 设置为喇叭输出、耳机mic输入：audio.setChannel(2,3)
 function setChannel(output, input)
-    if tonumber(string.match(rtos.get_version(), "(%d+)_RDA")) >= 9 then
+    local version = string.match(rtos.get_version(), "(%d+)_RDA")
+    if not version or tonumber(version) >= 9 then --匹配不到，兼容其它版本 或者大于版本9
         audiocore.setchannel(output or 2, input or 0)
     else
         ril.request("AT+AUDCH="..(output==1 and 1 or 2))

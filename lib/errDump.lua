@@ -24,7 +24,7 @@ module(..., package.seeall)
 --错误信息文件以及错误信息内容
 local LIB_ERR_FILE,libErr,LIB_ERR_MAX_LEN = "/lib_err.txt","",5*1024
 local LUA_ERR_FILE,luaErr = "/luaerrinfo.txt",""
-local sReporting,sProtocol
+local sReporting,sProtocol,switch
 local LIB_NETWORK_ERR_FILE,sNetworkLog,stNetworkLog,sNetworkLogFlag = "/lib_network_err.txt","",{}
 local firmwareAssertErr = ""
 
@@ -87,8 +87,59 @@ local function httpPostCbFnc(result,statusCode)
     sys.publish("ERRDUMP_HTTP_POST",result,statusCode)
 end
 
-function clientTask(protocol,addr,period)
+local function checkSwitch(addr)
+    local first = true
+    while true do
+        if not socket.isReady() then sys.waitUntil("IP_READY_IND") end
+        --log.info("errDump.clientTask","err",luaErr~="" or libErr~="")
+        local host,port = addr:match("://(.+):(%d+)$")
+        if not host then log.error("errDump.request invalid host port") return end
+        local result, data, time
+        while true do
+            local sck = socket.udp()
+            data = string.char(0, 0) .. misc.getImei()
+            if sck:connect(host, port) then
+                if sck:send(data) then
+                    result, data = sck:recv(5000)
+                    if result then
+                        data, result = json.decode(data)
+                        if result then
+                            if data.r == 1 then
+                                switch = true
+                                time = tonumber(data.expire_at)
+                            end
+                        end
+                    end
+                else
+                    switch = false
+                end
+            else
+                switch = false
+            end
+            sck:close()
+            if time then
+                local clk = time - os.time()
+                if clk < 7200 then
+                    sys.timerStart(function() switch = false end, clk * 1000)
+                end
+            end
+            break
+        end
+        if first then
+            sys.publish("GET_SWITCH")
+            first = nil
+        end
+        sys.wait(7200000)
+    end
+end
+
+function clientTask(protocol,addr,period,flag)
     sReporting = true
+    if flag then
+        sys.taskInit(checkSwitch, addr)
+        sys.waitUntil("GET_SWITCH")
+    end
+
     while true do
         if not socket.isReady() then sys.waitUntil("IP_READY_IND") end
         --log.info("errDump.clientTask","err",luaErr~="" or libErr~="")
@@ -99,24 +150,32 @@ function clientTask(protocol,addr,period)
                     http.request("POST",addr,nil,nil,reportData(),20000,httpPostCbFnc)                     
                     _,result = sys.waitUntil("ERRDUMP_HTTP_POST")
                 else
+                    if flag and not switch then
+                        break
+                    end
+                    
                     local host,port = addr:match("://(.+):(%d+)$")
                     if not host then log.error("errDump.request invalid host port") return end
-                    
                     local sck = protocol=="udp" and socket.udp() or socket.tcp()
-                    
                     if sck:connect(host,port) then
                         result = sck:send(reportData())
                         if result and protocol=="udp" then
                             result,data = sck:recv(20000)
                             if result then
-                                result = data=="OK"
+                                if not flag then
+                                    result = data=="OK"
+                                else
+                                    data, result = json.decode(data)
+                                    if result then
+                                        result = data.r == 1 and true or false
+                                    end
+                                end
                             end
                         end
                     end
-                    
                     sck:close()
                 end
-                
+
                 if result then
                     libErr = ""
                     os.remove(LIB_ERR_FILE)
@@ -129,6 +188,9 @@ function clientTask(protocol,addr,period)
                     if type(rtos.remove_fatal_info)=="function" then rtos.remove_fatal_info() end
                     break
                 else
+                    if flag then
+                        break
+                    end
                     retryCnt = retryCnt+1
                     if retryCnt==3 then
                         break
@@ -137,7 +199,7 @@ function clientTask(protocol,addr,period)
                 end
             end
         end
-        
+
         if period then
             --log.info("errDump.clientTask","wait",period)
             sys.wait(period)
@@ -256,21 +318,28 @@ end
 --   |          |||          |      |
 --   |------------------------------|
 -- @number[opt=600000] period，单位毫秒，定时检查错误信息并上报的间隔
+-- @bool flag，当使用合宙调试服务器时，此参数填为true；使用自定义服务器时，此参数可省略
 -- @return bool result，成功返回true，失败返回nil
 -- @usage
 -- errDump.request("http://www.user_server.com/errdump")
 -- errDump.request("udp://www.user_server.com:8081")
 -- errDump.request("tcp://www.user_server.com:8082")
 -- errDump.request("tcp://www.user_server.com:8082",6*3600*1000)
-function request(addr,period)
+-- errDump.request("udp://www.hezhou_server.com:8083",6*3600*1000,true)
+function request(addr,period,flag)
     local protocol = addr:match("(%a+)://")
     if protocol~="http" and protocol~="udp" and protocol~="tcp" then
         log.error("errDump.request invalid protocol",protocol)
         return
     end
-    
-    if not sReporting then        
-        sys.taskInit(clientTask,protocol,addr,period or 600000)
+
+    if flag and protocol ~= "udp" then
+        log.error("errDump.request invalid protocol",protocol)
+        return
+    end
+
+    if not sReporting then
+        sys.taskInit(clientTask,protocol,addr,period or 600000, flag)
     end
     return true
 end

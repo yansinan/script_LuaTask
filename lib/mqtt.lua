@@ -341,9 +341,13 @@ function mqttc:connect(host, port, transport, cert, timeout)
     end
     
     local r, packet = self:waitfor(CONNACK, self.commandTimeout, nil, true)
-    if not r or packet.rc ~= 0 then
+    -- if not r or packet.rc ~= 0 then
+    --     log.info("mqtt.client:connect", "connack error", r and packet.rc or -1)
+    --     return false,packet.rc
+    -- end
+    if (not r) or (not packet) or packet.rc ~= 0 then
         log.info("mqtt.client:connect", "connack error", r and packet.rc or -1)
-        return false,packet.rc
+        return false, packet and packet.rc or -1
     end
     
     self.connected = true

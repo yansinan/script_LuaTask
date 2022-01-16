@@ -48,7 +48,7 @@ ril.request("AT+RNDISCALL=0,1")
 --加载错误日志管理功能模块【强烈建议打开此功能】
 --如下2行代码，只是简单的演示如何使用errDump功能，详情参考errDump的api
 require "errDump"
-errDump.request("udp://ota.airm2m.com:9072")
+errDump.request("udp://dev_msg1.openluat.com:12425", nil, true)
 
 --加载远程升级功能模块【强烈建议打开此功能，如果使用了阿里云的OTA功能，可以不打开此功能】
 --如下3行代码，只是简单的演示如何使用update功能，详情参考update的api以及demo/update

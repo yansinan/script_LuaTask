@@ -39,7 +39,7 @@ flyMode = false
 --ci：小区ID
 --rssi：信号强度
 --rsrp：信号接收功率
-local lac, ci, rssi, rsrp = "", "", 0, 0
+local lac, ci, rssi, rsrp, band = "", "", 0, 0, ""
 
 --cellinfo：当前小区和临近小区信息表
 --multicellcb：获取多小区的回调函数
@@ -190,6 +190,7 @@ local function eemLteSvc(data)
             mnc = svcDataT[3]
             lac = svcDataT[4]
             ci = svcDataT[10]
+			band = svcDataT[8]
             rssi = (tonumber(svcDataT[15])-(tonumber(svcDataT[15])%3))/3
             if rssi>31 then rssi=31 end
             if rssi<0 then rssi=0 end
@@ -522,6 +523,13 @@ function getLac()
 	return lac
 end
 
+--- 获取当前注册的网络频段
+-- @return string band,当前注册的网络频段，如果还没有注册网络，则返回""
+-- @usage net.getBand()
+function getBand()
+	return band
+end
+
 --- 获取当前小区ID
 -- @return string ci,当前小区ID(16进制字符串，例如"93e1")，如果还没有注册GSM网络，则返回""
 -- @usage net.getCi()
@@ -740,7 +748,7 @@ sys.subscribe("SIM_IND", function(para)
 		--产生内部消息NET_STATE_CHANGED，表示网络状态发生变化
 		publish("NET_STATE_UNREGISTER")
 	else
-		state = "INIT"
+		--state = "INIT"
 	end
 end)
 

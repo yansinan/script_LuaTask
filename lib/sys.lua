@@ -10,7 +10,7 @@ require "patch"
 module(..., package.seeall)
 
 -- lib脚本版本号，只要lib中的任何一个脚本做了修改，都需要更新此版本号
-SCRIPT_LIB_VER = "2.4.0"
+SCRIPT_LIB_VER = "2.4.2"
 
 -- TaskID最大值
 local TASK_TIMER_ID_MAX = 0x1FFFFFFF
@@ -379,8 +379,11 @@ function subscribe(id, callback)
         log.warn("warning: sys.subscribe invalid parameter", id, callback)
         return
     end
-    if not subscribers[id] then subscribers[id] = {} end
-    subscribers[id][callback] = true
+    if not subscribers[id] then subscribers[id] = {count = 0} end
+    if not subscribers[id][callback] then
+        subscribers[id].count = subscribers[id].count + 1
+        subscribers[id][callback] = true
+    end
 end
 
 --- 取消订阅消息
@@ -392,17 +395,12 @@ function unsubscribe(id, callback)
         log.warn("warning: sys.unsubscribe invalid parameter", id, callback)
         return
     end
+    -- 取消订阅时将对应取消的函数赋值为false，不能直接赋值为nil，否则可能触发lua invalid key to 'next'异常
     if subscribers[id] then
-        subscribers[id][callback] = nil
-        
-        local empty = true
-        for k,v in pairs(subscribers[id]) do
-            if v then
-                empty=false
-                break
-            end
+        if subscribers[id][callback] then
+            subscribers[id].count = subscribers[id].count - 1
+            subscribers[id][callback] = false
         end
-        if empty then subscribers[id]=nil end
     end
 end
 
@@ -419,6 +417,11 @@ end
 local function dispatch()
     while true do
         if #messageQueue == 0 then
+            -- 当在同一个task内sys.waitUntil()不同的消息，并且没有任何消息publish时，会造成内存泄漏。
+            -- 例如：sys.waitUntil("1", 500)、sys.waitUntil("2", 500)、...、sys.waitUntil("n", 500)
+            for k, v in pairs(subscribers) do
+                if v.count == 0 then subscribers[k] = nil end
+            end
             break
         end
         local message = table.remove(messageQueue, 1)
@@ -432,12 +435,16 @@ local function dispatch()
                     end
                 end
             end
-            
+            -- 当某个subscribe的消息的回调取消订阅时，在这里将它赋值为nil，回收内存
             if subscribers[message[1]] then
                 for callback, flag in pairs(subscribers[message[1]]) do
                     if not flag then
                         subscribers[message[1]][callback] = nil
                     end
+                end
+                --当所有subscribe消息的回调都取消订阅时，在这里清空对应消息的表，回收内存
+                if subscribers[message[1]].count == 0 then
+                    subscribers[message[1]] = nil
                 end
             end
         end
