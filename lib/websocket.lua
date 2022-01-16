@@ -26,6 +26,7 @@ local function websocket(url, cert)
         send_data = {},
         send_text = nil,
         sendsize = 1460,
+        open_callback = false,
         connected = false,
         terminated = false,
         readyState = "CONNECTING",
@@ -53,7 +54,8 @@ end
 -- @return  true 表示连接成功,false or nil 表示连接失败
 -- @usage while not ws:connect(20000) do sys.wait(2000) end
 function ws:connect(timeout)
-    self.wss, self.host, self.port, self.path = self.url:lower():match("(%a+)://([%w%.%-]+):?(%d*)(.*)")
+    self.wss, self.host, self.port, self.path = self.url:match("(%a+)://([%w%.%-]+):?(%d*)(.*)")
+    self.wss, self.host = self.wss:lower(), self.host:lower()
     self.port = self.port ~= "" and self.port or (self.wss == "wss" and 443 or 80)
     if self.wss == "wss" then
         self.io = socket.tcp(true,self.cert)
@@ -71,6 +73,7 @@ function ws:connect(timeout)
     end
     self.key = crypto.base64_encode(math.random(100000000000000,999999999999999) .. 0, 16)
     -- 20220114 dr self.url 改self.url 否则到eggjs服务器的url连接失败
+    -- local req = "GET " .. self.path .. " HTTP/1.1\r\nHost: " .. self.host .. ":" .. self.port ..
     local req = "GET " .. self.url .. " HTTP/1.1\r\nHost: " .. self.host .. ":" .. self.port ..
         "\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n" .. "Origin: http://" .. self.host ..
         "\r\nSec-WebSocket-Version: 13\r\n" .. "Sec-WebSocket-Key: " .. self.key .. "\r\n\r\n"
@@ -78,7 +81,7 @@ function ws:connect(timeout)
         local r, s = self.io:recv(tonumber(timeout) or 5000)
         if not r then
             self.io:close()
-            log.error("websocket:connect", "与 websocket server 握手超时!",self.io.close)
+            log.error("websocket:connect", "与 websocket server 握手超时!")
             return false
         end
         local _, idx, code = s:find("%s(%d+)%s.-\r\n")
@@ -90,7 +93,7 @@ function ws:connect(timeout)
             if header["sec-websocket-accept"] and header["sec-websocket-accept"] == accept then
                 log.info("websocket:connect", "与 websocket server 握手成功!")
                 self.connected, self.readyState = true, "OPEN"
-                if self.callbacks.open then self.callbacks.open() end
+                if self.callbacks.open then self.open_callback = true end
                 return true
             end
         end
@@ -177,6 +180,7 @@ end
 -- 处理 websocket 发过来的数据并解析帧数据
 -- @return string : 返回解析后的单帧用户数据
 function ws:recvFrame()
+    local close_ctrl="EXIT_TASK"..self.io.id
     local r, s , p = self.io:recv(60000,"WEBSOCKET_SEND_DATA")
     if not r then
         if s=="timeout" then
@@ -196,6 +200,8 @@ function ws:recvFrame()
                 local send_data = table.concat(self.send_data)
                 self.send_data = {}
                 pong(self,send_data)
+            elseif p == close_ctrl then
+                return false, nil, close_ctrl
             end
             return false, nil, "WEBSOCKET_OK"
         else
@@ -227,8 +233,12 @@ function ws:recvFrame()
     end
     -- 获取有效载荷数据
     if length > 0 then
+        if length>126 then
         -- r, s = self.io:recv()
+        s=s:sub(5,5+length-1)
+        else  
         s=s:sub(3,3+length-1)
+        end
         -- if not r then return false, nil, "读取帧有效载荷数据失败!" end
     end
     -- 处理切片帧
@@ -313,6 +323,13 @@ function ws:close(code, reason)
     if self.callbacks.close then self.callbacks.close(code or 1001) end
     self.input = ""
 end
+--- 主动退出一个指定的websocket任务
+-- @传入一个websocket对象
+-- @return nil
+-- @usage wesocket.exit(ws)
+function exit(ws)
+    sys.publish("WEBSOCKET_SEND_DATA", "EXIT_TASK"..ws.io.id)
+end
 --- 获取websocket当前状态
 -- @return string: 状态值("CONNECTING","OPEN","CLOSING","CLOSED")
 -- @usage ws:state()
@@ -334,15 +351,24 @@ end
 function ws:start(keepAlive, proc, reconnTime)
     reconnTime = tonumber(reconnTime) and reconnTime * 1000 or 1000
     if tonumber(keepAlive) then
-        sys.timerLoopStart(self.ping, keepAlive * 1000, self, "heart")
+        keepAlivetimer=sys.timerLoopStart(self.ping, keepAlive * 1000, self, "heart")
     end
     while true do
-        while not socket.isReady() do sys.wait(1000) end        
+        while not socket.isReady() do sys.wait(1000) end
         if self:connect() then
+            local close_ctrl="EXIT_TASK"..self.io.id
             repeat
                 local r, message = self:recv()
+                if self.open_callback == true then self.callbacks.open() self.open_callback = false end
                 if r then
                     if type(proc) == "function" then proc(message) end
+                elseif message == close_ctrl then
+                    self:close()
+                    sys.timerStop(keepAlivetimer)
+                    if self.io.id ~= nil then
+                        self=nil
+                    end
+                    return true
                 elseif not r and message ~="WEBSOCKET_OK" then
                     log.error('ws recv error', message)
                 end

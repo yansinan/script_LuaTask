@@ -56,7 +56,7 @@ netLed.setup(true,pio.P0_1,pio.P0_4)
 --加载错误日志管理功能模块【强烈建议打开此功能】
 --如下2行代码，只是简单的演示如何使用errDump功能，详情参考errDump的api
 require "errDump"
-errDump.request("udp://ota.airm2m.com:9072")
+errDump.request("udp://dev_msg1.openluat.com:12425", nil, true)
 
 --加载远程升级功能模块【强烈建议打开此功能】
 --如下3行代码，只是简单的演示如何使用update功能，详情参考update的api以及demo/update
@@ -71,11 +71,6 @@ require "patch"
 
 -- 加载I²C功能测试模块
 require "i2c_ssd1306_lcd"
---require "mpu6xxx"
---require "ds3231"
---require "bh1750"
---require "AHT10"
---require "SHT30"
 require "ntp"
 ntp.timeSync(1, function()log.info("----------------> AutoTimeSync is Done ! <----------------") end)
 -- 启动系统框架
