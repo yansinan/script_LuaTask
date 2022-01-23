@@ -91,7 +91,7 @@ function ws:connect(timeout)
             accept = crypto.base64_encode(accept, #accept)
             for k, v in string.gmatch(s:sub(idx + 1, -1), "(.-):%s*(.-)\r\n") do header[k:lower()] = v end
             if header["sec-websocket-accept"] and header["sec-websocket-accept"] == accept then
-                log.info("websocket:connect", "与 websocket server 握手成功!")
+                log.info("websocket:connect", "与 websocket server 握手成功!","open回调",self.callbacks.open,"open_callback",self.open_callback)
                 self.connected, self.readyState = true, "OPEN"
                 if self.callbacks.open then self.open_callback = true end
                 return true
@@ -259,7 +259,8 @@ function ws:recvFrame()
             -- self:close(code, reason)
             return false, nil, reason
         elseif opcode == 0x9 then --Ping
-            self:pong(s)
+            -- self:pong(s)
+            if self.callbacks.ping then self.callbacks.ping(s) end
         elseif opcode == 0xA then -- Pong
             if self.callbacks.pong then self.callbacks.pong(s) end
         end
@@ -358,8 +359,11 @@ function ws:start(keepAlive, proc, reconnTime)
         if self:connect() then
             local close_ctrl="EXIT_TASK"..self.io.id
             repeat
+                if self.open_callback == true then 
+                    self.callbacks.open() 
+                    self.open_callback = false
+                end
                 local r, message = self:recv()
-                if self.open_callback == true then self.callbacks.open() self.open_callback = false end
                 if r then
                     if type(proc) == "function" then proc(message) end
                 elseif message == close_ctrl then
